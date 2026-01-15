@@ -21,55 +21,66 @@
   header h1 { margin: 0; }
   header #userName { font-weight: normal; font-size: 1em; margin-top: 5px; }
 
+  /* Neues Karten-Grid */
   #board {
-    position: relative;
     width: 100%;
-    min-height: 80vh;
-    padding: 40px;
+    min-height: 60vh;
+    padding: 30px;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 12px;
+    gap: 20px;
   }
 
+  /* Moderne weiße Karten */
   .note {
-    width: 150px;
-    min-height: 80px;
-    padding: 8px;
-    font-size: 0.85em;
-    background: #fff8b0;
-    border-radius: 10px;
-    box-shadow: 2px 4px 8px rgba(0,0,0,0.2);
-    position: relative;
-    transform: rotate(0deg);
-    cursor: grab;
-    word-wrap: break-word;
-    transition: transform 0.2s;
+    width: 220px;
+    min-height: 120px;
+    padding: 15px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.15s ease;
   }
 
   .note:hover {
-    transform: scale(1.05) rotate(var(--rotation));
+    transform: translateY(-4px);
   }
 
-  .note h4 { margin: 0 0 4px 0; font-size: 0.95em; }
-  .note p { margin: 0; }
+  .note h4 {
+    margin: 0 0 8px 0;
+    font-size: 1.1em;
+    color: #333;
+  }
 
+  .note p {
+    margin: 0;
+    color: #555;
+    font-size: 0.9em;
+  }
+
+  /* Delete Button modern */
   .deleteBtn {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    background: #d32f2f;
+    margin-top: 10px;
+    align-self: flex-end;
+    background: #e74c3c;
     color: white;
     border: none;
-    border-radius: 3px;
+    border-radius: 6px;
     cursor: pointer;
-    padding: 2px 6px;
-    font-size: 0.7em;
+    padding: 5px 10px;
+    font-size: 0.75em;
     display: none;
   }
 
-  .teacher .deleteBtn { display: block; }
+  .teacher .deleteBtn {
+    display: inline-block;
+  }
 
+  /* Formular */
   #newNoteForm {
     max-width: 400px;
     margin: 20px auto;
@@ -96,17 +107,6 @@
     background: #eee;
     margin-top: 40px;
   }
-
-  button#logout {
-    padding: 10px 20px;
-    border: none;
-    background: #d32f2f;
-    color: white;
-    border-radius: 5px;
-    cursor: pointer;
-  }
-  button#logout:hover { background: #b71c1c; }
-
 </style>
 </head>
 <body>
@@ -131,8 +131,10 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+import { 
+  getFirestore, collection, addDoc, getDocs, deleteDoc, doc, getDoc, serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
@@ -162,26 +164,22 @@ onAuthStateChanged(auth, async user => {
   }
   currentUser = user;
 
-  // User-Daten
   const userDoc = await getDoc(doc(db, "users", user.uid));
-  if (!userDoc.exists()) {
-    alert("Fehler: User-Daten fehlen!");
-    return;
-  }
   const userData = userDoc.data();
+
   userNameDiv.innerText = `Hallo, ${userData.name}!`;
 
   isTeacher = userData.role === "teacher";
   if (isTeacher) document.body.classList.add("teacher");
 
-  // Pins laden
   loadPins();
 });
 
+// Pins laden
 const loadPins = async () => {
   board.innerHTML = "";
-  const pinsCol = collection(db, "pins");
-  const snapshot = await getDocs(pinsCol);
+  const snapshot = await getDocs(collection(db, "pins"));
+
   if (snapshot.empty) {
     board.innerHTML = "<p>Keine Zettel vorhanden.</p>";
     return;
@@ -189,25 +187,19 @@ const loadPins = async () => {
 
   snapshot.forEach(docSnap => {
     const pin = docSnap.data();
+
     const note = document.createElement("div");
     note.className = "note";
-    const rotation = (Math.random() * 10 - 5) + "deg"; // -5 bis +5 Grad
-    const colors = ["#fff8b0","#b0f0b0","#f0b0b0","#b0dfff","#f0d0b0"];
-    note.style.background = colors[Math.floor(Math.random()*colors.length)];
-    note.style.setProperty("--rotation", rotation);
-    note.style.transform = `rotate(${rotation})`;
 
     note.innerHTML = `
       <h4>${pin.title}</h4>
       <p>${pin.content}</p>
-      ${isTeacher ? `<button class="deleteBtn">X</button>` : ""}
+      ${isTeacher ? `<button class="deleteBtn">Löschen</button>` : ""}
     `;
-    
-    // Löschen
+
     if (isTeacher) {
-      note.dataset.id = docSnap.id;
       note.querySelector(".deleteBtn").onclick = async () => {
-        await deleteDoc(doc(db, "pins", note.dataset.id));
+        await deleteDoc(doc(db, "pins", docSnap.id));
         loadPins();
       };
     }
@@ -216,35 +208,32 @@ const loadPins = async () => {
   });
 };
 
-// Neues Post erstellen
+// Neuen Pin erstellen
 form.onsubmit = async e => {
   e.preventDefault();
+
   const titleVal = noteTitle.value.trim();
   const contentVal = noteContent.value.trim();
+
   if (!titleVal || !contentVal) {
     msg.innerText = "Titel und Inhalt ausfüllen!";
     return;
   }
 
-  try {
-    await addDoc(collection(db, "pins"), {
-      title: titleVal,
-      content: contentVal,
-      createdBy: currentUser.uid,
-      createdAt: serverTimestamp()
-    });
-    noteTitle.value = "";
-    noteContent.value = "";
-    msg.innerText = "";
-    loadPins();
-  } catch (e) {
-    msg.innerText = "Fehler: " + e.message;
-  }
+  await addDoc(collection(db, "pins"), {
+    title: titleVal,
+    content: contentVal,
+    createdBy: currentUser.uid,
+    createdAt: serverTimestamp()
+  });
+
+  noteTitle.value = "";
+  noteContent.value = "";
+  msg.innerText = "";
+
+  loadPins();
 };
-
-// Logout
-document.getElementById("logout").onclick = () => signOut(auth);
-
 </script>
+
 </body>
 </html>
