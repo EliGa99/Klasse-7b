@@ -93,7 +93,6 @@
 </style>
 </head>
 <body>
-
 <header>
   <h1>Klassen-Dashboard 7b</h1>
   <div id="userName"></div>
@@ -102,7 +101,7 @@
 <main>
   <a href="profile.html" class="profile_card" id="blogCard">
     <h3>Mein Profil</h3>
-    <p>Sehe deinen Lern Fortschritt</p>
+    <p>Behalte deinen Lernfortschritt im Blick</p>
   </a>
   <a href="tasks.html" class="card" id="tasksCard">
     <h3>Aufgaben</h3>
@@ -111,16 +110,16 @@
 
   <a href="pinboard.html" class="card" id="pinboardCard">
     <h3>Pinnwand</h3>
-    <p>Schüler und Lehrer können Nachrichten An Pinnen</p>
+    <p>Schüler und Lehrer können Nachrichten anpinnen</p>
   </a>
 
   <a href="blog.html" class="card" id="blogCard">
     <h3>Blog</h3>
-    <p>Schüler und Lehrer können Nachrichten Austauschen</p>
+    <p>Schüler und Lehrer können Nachrichten austauschen</p>
   </a>
   <a href="card.html" class="card" id="blogCard">
-    <h3>Lern Karten</h3>
-    <p>Schüler können mit von Lehrern geschreibende Lernpacks üben</p>
+    <h3>Lernkarten</h3>
+    <p>Schüler können mit von Lehrern geschriebenen Lernpacks üben</p>
   </a>
 
   <!-- Teacher-Links werden dynamisch angezeigt -->
@@ -130,8 +129,12 @@
   </a>
 
   <a href="create_card.html" class="teacher-card" id="createCard" style="display:none">
-    <h3>Lern Karten Erstellen</h3>
-    <p>Hier können Sie Lernkarten für die die Klasse 7b erstellen</p>
+    <h3>Lernkarten erstellen</h3>
+    <p>Hier können Sie Lernkarten für die Klasse 7b erstellen</p>
+  </a>
+  <a href="user_list.html" class="teacher-card" id="UserCard" style="display:none">
+    <h3>Schüler Liste</h3>
+    <p>Haben Sie den Lernfortschritt Ihrer Schüler im Blick</p>
   </a>
 </main>
 
@@ -156,7 +159,8 @@ const db = getFirestore(app);
 
 const userNameDiv = document.getElementById("userName");
 const createTaskCard = document.getElementById("createTaskCard");
-const createCard = document.getElementById("createCard")
+const createCard = document.getElementById("createCard");
+const userCard = document.getElementById("UserCard")
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
@@ -178,6 +182,7 @@ onAuthStateChanged(auth, async user => {
   if (userData.role === "teacher") {
     createTaskCard.style.display = "block";
     createCard.style.display = "block";
+    userCard.style.display = "block";
   }
 });
 
