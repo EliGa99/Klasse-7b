@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Aufgabe erstellen</title>
+<style>
+  body {
+    font-family: Arial;
+    background: white;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: start;
+    min-height: 100vh;
+    padding-top: 50px;
+  }
+
+  .box {
+    background: white;
+    border-radius: 10px;
+    padding: 30px;
+    width: 400px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  }
+
+  h2 { text-align: center; margin-bottom: 20px; }
+  input, textarea, button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+  }
+
+  button {
+    background: #1976d2;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+
+  button:hover { background: #115293; }
+
+  #msg {
+    margin-top: 10px;
+    font-size: 0.9em;
+    color: #d32f2f;
+  }
+</style>
+</head>
+<body>
+
+<div class="box">
+  <h2>Aufgabe erstellen</h2>
+  <input id="title" type="text" placeholder="Titel der Aufgabe">
+  <textarea id="description" rows="5" placeholder="Beschreibung"></textarea>
+  <input id="dueDate" type="date">
+  <button id="createBtn">Aufgabe erstellen</button>
+  <p id="msg"></p>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
+  authDomain: "klassen-website-5283c.firebaseapp.com",
+  projectId: "klassen-website-5283c"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const titleInput = document.getElementById("title");
+const descInput = document.getElementById("description");
+const dueInput = document.getElementById("dueDate");
+const createBtn = document.getElementById("createBtn");
+const msg = document.getElementById("msg");
+
+// Auth + Rollencheck
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+  if (!userDoc.exists()) {
+    alert("Fehler: User-Daten fehlen!");
+    return;
+  }
+
+  const userData = userDoc.data();
+
+  if (userData.role !== "teacher") {
+    alert("Nur Lehrer können Aufgaben erstellen!");
+    window.location.href = "index.html";
+    return;
+  }
+});
+
+createBtn.onclick = async () => {
+  const titleVal = titleInput.value.trim();
+  const descVal = descInput.value.trim();
+  const dueVal = dueInput.value;
+
+  if (!titleVal || !descVal || !dueVal) {
+    msg.innerText = "Alle Felder ausfüllen!";
+    return;
+  }
+
+  try {
+    await addDoc(collection(db, "tasks"), {
+      title: titleVal,
+      description: descVal,
+      dueDate: new Date(dueVal),
+      completedBy: [],
+      createdAt: serverTimestamp()
+    });
+
+    window.location.href = "index.html"; // Zurück zum Dashboard
+  } catch (e) {
+    msg.innerText = "Fehler beim Erstellen: " + e.message;
+  }
+};
+</script>
+
+</body>
+</html>

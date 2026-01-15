@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Profil</title>
+<style>
+  body { font-family: Arial; background:#f5f5f5; margin:0; padding:0; }
+  header { background: linear-gradient(250deg, #20d1e1, #b638ff); color:white; padding:20px; text-align:center; }
+  main { max-width:700px; margin:30px auto; background:white; padding:20px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+  .progressBox { margin-top:20px; padding:15px; background:#fafafa; border-radius:8px; border:1px solid #ddd; }
+  .barOuter { width:100%; background:#ddd; height:15px; border-radius:10px; margin-top:5px; }
+  .barInner { height:15px; background:#4caf50; border-radius:10px; width:0%; transition:0.4s; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Dein Profil</h1>
+  <div id="userName"></div>
+</header>
+
+<main>
+  <h2>Deine Lernfortschritte</h2>
+  <div id="progressContainer">
+    <p>Lade Fortschritt…</p>
+  </div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+import { 
+  getFirestore, collection, getDocs, query, where, doc, getDoc 
+} from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
+  authDomain: "klassen-website-5283c.firebaseapp.com",
+  projectId: "klassen-website-5283c"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const userNameDiv = document.getElementById("userName");
+const progressContainer = document.getElementById("progressContainer");
+
+let currentUser = null;
+
+// LOGIN
+onAuthStateChanged(auth, async user => {
+  if (!user) return window.location.href = "login.html";
+  currentUser = user;
+
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+  userNameDiv.innerText = `Hallo, ${userDoc.data().name}!`;
+
+  loadProgress();
+});
+
+// FORTSCHRITT LADEN
+async function loadProgress() {
+  progressContainer.innerHTML = "Lade…";
+
+  // Packs laden
+  const packsSnap = await getDocs(collection(db, "packs"));
+  if (packsSnap.empty) {
+    progressContainer.innerHTML = "<p>Noch keine Packs vorhanden.</p>";
+    return;
+  }
+
+  let html = "";
+
+  for (const packDoc of packsSnap.docs) {
+    const pack = packDoc.data();
+    const packId = packDoc.id;
+
+    // Karten dieses Packs laden
+    const cardsSnap = await getDocs(
+      query(collection(db, "cards"), where("packId", "==", packId))
+    );
+
+    const totalCards = cardsSnap.size;
+
+    // Fortschritt laden
+    const progressSnap = await getDocs(
+      query(collection(db, "progress"), where("userId", "==", currentUser.uid))
+    );
+
+    // Karten, die gelernt wurden
+    const learnedCards = progressSnap.docs.filter(p => {
+      return p.data().cardId && cardsSnap.docs.some(c => c.id === p.data().cardId);
+    }).length;
+
+    const percent = totalCards > 0 ? Math.round((learnedCards / totalCards) * 100) : 0;
+
+    html += `
+      <div class="progressBox">
+        <h3>${pack.title}</h3>
+        <p>${learnedCards} von ${totalCards} Karten gelernt (${percent}%)</p>
+        <div class="barOuter">
+          <div class="barInner" style="width:${percent}%"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  progressContainer.innerHTML = html;
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Lernkarten verwalten</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#f5f5f5; margin:0; padding:0; }
+  header { background: linear-gradient(250deg, #20d1e1, #b638ff); color:white; padding:20px; text-align:center; position:relative; }
+  header h1 { margin:0; }
+  #logout { position:absolute; right:20px; top:20px; padding:8px 14px; border:none; border-radius:5px; background:#ff5252; color:white; cursor:pointer; }
+  main { max-width:900px; margin:30px auto; background:white; padding:20px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+  label { display:block; margin-top:10px; font-weight:bold; }
+  input[type="text"], textarea, select {
+    width:100%; padding:8px; margin-top:5px; border-radius:5px; border:1px solid #ccc; box-sizing:border-box;
+  }
+  textarea { min-height:100px; }
+  button { margin-top:15px; padding:10px 20px; border:none; background:#1976d2; color:white; border-radius:5px; cursor:pointer; }
+  button:hover { background:#115293; }
+  #msg, #packMsg { margin-top:10px; }
+  .card-list { margin-top:30px; }
+  .card-item { border-top:1px solid #eee; padding:10px 0; }
+  .card-item-title { font-weight:bold; }
+  .badge { display:inline-block; padding:2px 6px; border-radius:4px; background:#eee; font-size:12px; margin-left:5px; }
+  .pack-box { padding:10px; border:1px solid #ddd; border-radius:5px; margin-top:10px; background:#fafafa; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Lernkarten – Lehrerbereich</h1>
+  <div id="userName"></div>
+  <button id="logout">Logout</button>
+</header>
+
+<main>
+
+  <!-- PACK ERSTELLEN -->
+  <h2>Neues Karten‑Pack erstellen</h2>
+
+  <label for="packTitle">Pack‑Titel</label>
+  <input type="text" id="packTitle" placeholder="z. B. Englisch – Unit 3">
+
+  <label for="packSubject">Fach</label>
+  <input type="text" id="packSubject" placeholder="z. B. Englisch">
+
+  <button id="savePack">Pack erstellen</button>
+  <p id="packMsg"></p>
+
+  <hr style="margin:30px 0">
+
+  <!-- KARTE ERSTELLEN -->
+  <h2>Neue Lernkarte erstellen</h2>
+
+  <label for="packSelect">Pack auswählen</label>
+  <select id="packSelect">
+    <option value="">Bitte Pack auswählen…</option>
+  </select>
+
+  <label for="cardQuestion">Frage</label>
+  <textarea id="cardQuestion"></textarea>
+
+  <label for="cardAnswer">Antwort</label>
+  <textarea id="cardAnswer"></textarea>
+
+  <button id="saveCard">Lernkarte speichern</button>
+  <p id="msg"></p>
+
+  <!-- LISTE ALLER PACKS + KARTEN -->
+  <div class="card-list">
+    <h2>Alle Karten‑Packs</h2>
+    <div id="packsContainer">
+      <p>Lade Packs…</p>
+    </div>
+  </div>
+
+</main>
+
+<footer style="text-align:center; padding:15px; background:#eee; margin-top:30px;">
+  <a href="tasks.html">Zurück zur Aufgabenliste</a>
+</footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  getDocs, 
+  query, 
+  where, 
+  orderBy, 
+  serverTimestamp, 
+  doc, 
+  getDoc 
+} from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
+  authDomain: "klassen-website-5283c.firebaseapp.com",
+  projectId: "klassen-website-5283c"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const userNameDiv = document.getElementById("userName");
+const logoutBtn = document.getElementById("logout");
+
+const savePackBtn = document.getElementById("savePack");
+const packMsg = document.getElementById("packMsg");
+const packTitleInput = document.getElementById("packTitle");
+const packSubjectInput = document.getElementById("packSubject");
+const packSelect = document.getElementById("packSelect");
+const packsContainer = document.getElementById("packsContainer");
+
+const saveCardBtn = document.getElementById("saveCard");
+const msgP = document.getElementById("msg");
+const questionInput = document.getElementById("cardQuestion");
+const answerInput = document.getElementById("cardAnswer");
+
+let currentUser = null;
+
+// LOGIN + ROLLENPRÜFUNG
+onAuthStateChanged(auth, async user => {
+  if (!user) return window.location.href = "login.html";
+  currentUser = user;
+
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+  if (!userDoc.exists()) return alert("Fehler: User-Daten fehlen!");
+
+  const userData = userDoc.data();
+  userNameDiv.innerText = `Hallo, ${userData.name}!`;
+
+  if (userData.role !== "teacher") {
+    alert("Nur Lehrer haben Zugriff.");
+    return window.location.href = "tasks.html";
+  }
+
+  loadPacks();
+});
+
+// PACK SPEICHERN
+savePackBtn.onclick = async () => {
+  const title = packTitleInput.value.trim();
+  const subject = packSubjectInput.value.trim();
+
+  if (!title) {
+    packMsg.innerText = "Bitte Titel eingeben.";
+    packMsg.style.color = "red";
+    return;
+  }
+
+  await addDoc(collection(db, "packs"), {
+    title,
+    subject,
+    createdBy: currentUser.uid,
+    createdAt: serverTimestamp()
+  });
+
+  packMsg.innerText = "Pack erstellt ✅";
+  packMsg.style.color = "green";
+
+  packTitleInput.value = "";
+  packSubjectInput.value = "";
+
+  loadPacks();
+};
+
+// PACKS LADEN
+async function loadPacks() {
+  packSelect.innerHTML = `<option value="">Bitte Pack auswählen…</option>`;
+  packsContainer.innerHTML = "Lade Packs…";
+
+  const q = query(
+    collection(db, "packs"),
+    where("createdBy", "==", currentUser.uid),
+    orderBy("createdAt", "desc")
+  );
+
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    packsContainer.innerHTML = "<p>Noch keine Packs erstellt.</p>";
+    return;
+  }
+
+  let html = "";
+
+  for (const docSnap of snap.docs) {
+    const pack = docSnap.data();
+    const packId = docSnap.id;
+
+    // Dropdown füllen
+    packSelect.innerHTML += `<option value="${packId}">${pack.title}</option>`;
+
+    // Karten dieses Packs laden
+    const cardsQ = query(
+      collection(db, "cards"),
+      where("packId", "==", packId),
+      orderBy("createdAt", "desc")
+    );
+    const cardsSnap = await getDocs(cardsQ);
+
+    let cardsHtml = "";
+    cardsSnap.forEach(cardDoc => {
+      const c = cardDoc.data();
+      cardsHtml += `
+        <div class="card-item">
+          <b>Frage:</b> ${c.question}<br>
+          <b>Antwort:</b> ${c.answer}
+        </div>
+      `;
+    });
+
+    html += `
+      <div class="pack-box">
+        <h3>${pack.title} <span class="badge">${pack.subject || "Allgemein"}</span></h3>
+        ${cardsHtml || "<i>Noch keine Karten</i>"}
+      </div>
+    `;
+  }
+
+  packsContainer.innerHTML = html;
+}
+
+// KARTE SPEICHERN
+saveCardBtn.onclick = async () => {
+  const packId = packSelect.value;
+  const question = questionInput.value.trim();
+  const answer = answerInput.value.trim();
+
+  if (!packId) {
+    msgP.innerText = "Bitte ein Pack auswählen.";
+    msgP.style.color = "red";
+    return;
+  }
+  if (!question || !answer) {
+    msgP.innerText = "Bitte Frage und Antwort eingeben.";
+    msgP.style.color = "red";
+    return;
+  }
+
+  await addDoc(collection(db, "cards"), {
+    packId,
+    question,
+    answer,
+    createdBy: currentUser.uid,
+    createdAt: serverTimestamp()
+  });
+
+  msgP.innerText = "Karte gespeichert ✅";
+  msgP.style.color = "green";
+
+  questionInput.value = "";
+  answerInput.value = "";
+
+  loadPacks();
+};
+
+// LOGOUT
+logoutBtn.onclick = () => signOut(auth);
+</script>
+</body>
+</html>

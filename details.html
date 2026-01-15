@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Aufgabe Details</title>
+<style>
+  body { font-family: Arial; background:#f5f5f5; margin:0; padding:0; }
+  header { background: linear-gradient(250deg, #20d1e1, #b638ff); color:white; padding:20px; text-align:center; }
+  header h1 { margin:0; }
+  main { max-width:600px; margin:30px auto; background:white; padding:20px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+  textarea { width:100%; padding:10px; border-radius:5px; border:1px solid #ccc; margin-top:10px; }
+  button { margin-top:10px; padding:10px 20px; border:none; background:#1976d2; color:white; border-radius:5px; cursor:pointer; }
+  button:hover { background:#115293; }
+  .submission { border-top:1px solid #eee; padding:10px 0; }
+  .deleteBtn { background:#d32f2f; color:white; border:none; border-radius:3px; padding:3px 6px; cursor:pointer; margin-left:10px; }
+  .completed { color: green; font-weight: bold; margin-left:5px; }
+  footer { text-align:center; padding:15px; background:#eee; margin-top:30px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Aufgabe Details</h1>
+  <div id="userName"></div>
+  <button id="logout" style="position:absolute; top:20px; right:20px;">Logout</button>
+</header>
+
+<main id="taskContainer">
+  <p>Lade Aufgabe...</p>
+</main>
+
+<footer>
+  <a href="tasks.html">Zurück zur Aufgabenliste</a>
+</footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
+  authDomain: "klassen-website-5283c.firebaseapp.com",
+  projectId: "klassen-website-5283c"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const taskContainer = document.getElementById("taskContainer");
+const userNameDiv = document.getElementById("userName");
+
+// Task-ID aus URL
+const urlParams = new URLSearchParams(window.location.search);
+const taskId = urlParams.get("id");
+if (!taskId) taskContainer.innerHTML = "<p>Keine Aufgabe ausgewählt!</p>";
+
+let currentUser = null;
+let isTeacher = false;
+
+// Auth + Aufgabe laden
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+  currentUser = user;
+
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+  if (!userDoc.exists()) { alert("Fehler: User-Daten fehlen!"); return; }
+  const userData = userDoc.data();
+  userNameDiv.innerText = `Hallo, ${userData.name}!`;
+
+  isTeacher = userData.role === "teacher";
+
+  // Task-Daten
+  const taskDoc = await getDoc(doc(db, "tasks", taskId));
+  if (!taskDoc.exists()) { taskContainer.innerHTML = "<p>Aufgabe existiert nicht!</p>"; return; }
+  const task = taskDoc.data();
+  const due = task.dueDate?.toDate?.();
+  const dueStr = due ? due.toLocaleDateString() : "kein Datum";
+
+  // Aufgabe anzeigen
+  let html = `
+    <h2>${task.title}</h2>
+    <p>${task.description}</p>
+    <p>Abgabe: ${dueStr}</p>
+  `;
+
+  if (!isTeacher) {
+    // Schüler: eigene Lösung + erledigt
+    const myAnswer = task.submissions?.[currentUser.uid] || "";
+    const completed = task.completed?.includes(currentUser.uid) || false;
+    html += `
+      <textarea id="answer" placeholder="Hier deine Lösung eingeben...">${myAnswer}</textarea>
+      <button id="submitAnswer">Lösung speichern</button>
+      <p id="msg"></p>
+      <br>
+      <button id="markDone">${completed ? "Erledigt ✅" : "Als erledigt markieren"}</button>
+    `;
+  } else {
+
+    html += "<h1>Schülerabgaben</h1>";
+
+    const hasEntries =
+      (task.submissions && Object.keys(task.submissions).length > 0) ||
+      (task.completed && task.completed.length > 0);
+
+    if (hasEntries) {
+      const allStudents = new Set([
+        ...Object.keys(task.submissions || {}),
+        ...(task.completed || [])
+      ]);
+
+      const studentHtmlPromises = Array.from(allStudents).map(async uid => {
+        const ans = task.submissions?.[uid] || "";
+        const done = task.completed?.includes(uid) ? "✅" : "";
+        const userDocRef = doc(db, "users", uid);
+        const userDocSnap = await getDoc(userDocRef);
+        const studentName = userDocSnap.exists() ? userDocSnap.data().name : uid;
+       return `
+  <div class="submission">
+    <b>${studentName}</b> ${done}
+    <div style="
+      background:#fafafa;
+      border:1px solid #ddd;
+      padding:10px;
+      margin-top:5px;
+      white-space:pre-wrap;
+      border-radius:5px;
+    ">
+      ${ans || "<i>Keine Antwort abgegeben</i>"}
+    </div>
+  </div>
+`;
+
+      });
+
+      const studentHtmlArray = await Promise.all(studentHtmlPromises);
+      html += studentHtmlArray.join("");
+    } else {
+      html += "<p>Keine Einträge.</p>";
+    }
+  }
+
+  taskContainer.innerHTML = html;
+
+  // Schüler: Lösung speichern
+  if (!isTeacher) {
+    const submitBtn = document.getElementById("submitAnswer");
+    const answerInput = document.getElementById("answer");
+    const msg = document.getElementById("msg");
+
+    submitBtn.onclick = async () => {
+      const answer = answerInput.value.trim();
+      if (!answer) { msg.innerText = "Bitte zuerst etwas eingeben!"; return; }
+
+      try {
+        const updated = {
+          submissions: { ...(task.submissions || {}), [currentUser.uid]: answer },
+          lastModified: serverTimestamp()
+        };
+        await updateDoc(doc(db, "tasks", taskId), updated);
+        msg.innerText = "Lösung gespeichert ✅";
+      } catch (e) {
+        msg.innerText = "Fehler: " + e.message;
+      }
+    };
+
+    // Schüler: Als erledigt markieren
+    const markDoneBtn = document.getElementById("markDone");
+    markDoneBtn.onclick = async () => {
+      const completedList = new Set(task.completed || []);
+      completedList.add(currentUser.uid);
+
+      await updateDoc(doc(db, "tasks", taskId), {
+        completed: Array.from(completedList),
+        lastModified: serverTimestamp()
+      });
+
+      markDoneBtn.innerText = "Erledigt ✅";
+    };
+  }
+});
+
+// Logout
+document.getElementById("logout")?.addEventListener("click", () => signOut(auth));
+</script>
+</body>
+</html>

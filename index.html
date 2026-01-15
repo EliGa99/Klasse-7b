@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Klassen-Dashboard</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: white;
+    color: #333;
+    margin: 0;
+    padding: 0;
+  }
+  header {
+    background: linear-gradient(250deg, #20d1e1, #b638ff);
+    color: white;
+    padding: 20px;
+    text-align: center;
+  }
+  header h1 { margin: 0; font-size: 1.8em; }
+  #userName { font-weight: normal; font-size: 1em; }
+  
+  main {
+    display: flex;
+    justify-content: center;
+    padding: 30px;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    width: 250px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: transform 0.2s;
+    text-decoration: none;
+    color: #333;
+  }
+  .profile_card {
+    background: rgb(4, 238, 255);
+    border-radius: 10px;
+    padding: 20px;
+    width: 250px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: transform 0.2s;
+    text-decoration: none;
+    color: #333;
+  }
+
+  .teacher-card {
+    background: linear-gradient(250deg, #20d1e1, #b638ff);
+    border-radius: 10px;
+    padding: 20px;
+    width: 250px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: transform 0.2s;
+    text-decoration: none;
+    color: #333;
+  }
+  
+  .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  }
+
+  .card h3 { margin: 0 0 10px 0; }
+  .card p { margin: 0; font-size: 0.9em; color: #555; }
+
+  footer {
+    text-align: center;
+    padding: 15px;
+    background: #eee;
+    margin-top: 40px;
+  }
+
+  button#logout {
+    margin-top: 10px;
+    padding: 10px 20px;
+    border: none;
+    background: #d32f2f;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  button#logout:hover { background: #b71c1c; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Klassen-Dashboard 7b</h1>
+  <div id="userName"></div>
+</header>
+
+<main>
+  <a href="profile.html" class="profile_card" id="blogCard">
+    <h3>Mein Profil</h3>
+    <p>Sehe deinen Lern Fortschritt</p>
+  </a>
+  <a href="tasks.html" class="card" id="tasksCard">
+    <h3>Aufgaben</h3>
+    <p>Hier siehst du deine offenen Aufgaben</p>
+  </a>
+
+  <a href="pinboard.html" class="card" id="pinboardCard">
+    <h3>Pinnwand</h3>
+    <p>Schüler und Lehrer können Nachrichten An Pinnen</p>
+  </a>
+
+  <a href="blog.html" class="card" id="blogCard">
+    <h3>Blog</h3>
+    <p>Schüler und Lehrer können Nachrichten Austauschen</p>
+  </a>
+  <a href="card.html" class="card" id="blogCard">
+    <h3>Lern Karten</h3>
+    <p>Schüler können mit von Lehrern geschreibende Lernpacks üben</p>
+  </a>
+
+  <!-- Teacher-Links werden dynamisch angezeigt -->
+  <a href="create_task.html" class="teacher-card" id="createTaskCard" style="display:none">
+    <h3>Aufgabe erstellen</h3>
+    <p>Hier können Sie Aufgaben erstellen</p>
+  </a>
+
+  <a href="create_card.html" class="teacher-card" id="createCard" style="display:none">
+    <h3>Lern Karten Erstellen</h3>
+    <p>Hier können Sie Lernkarten für die die Klasse 7b erstellen</p>
+  </a>
+</main>
+
+<footer>
+  <button id="logout">Logout</button>
+</footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
+  authDomain: "klassen-website-5283c.firebaseapp.com",
+  projectId: "klassen-website-5283c"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const userNameDiv = document.getElementById("userName");
+const createTaskCard = document.getElementById("createTaskCard");
+const createCard = document.getElementById("createCard")
+
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  // User-Daten aus Firestore holen
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+  if (!userDoc.exists()) {
+    alert("Fehler: User-Daten fehlen!");
+    return;
+  }
+
+  const userData = userDoc.data();
+  userNameDiv.innerText = `Hallo, ${userData.name}!`;
+
+  // Teacher-Module sichtbar machen
+  if (userData.role === "teacher") {
+    createTaskCard.style.display = "block";
+    createCard.style.display = "block";
+  }
+});
+
+// Logout
+document.getElementById("logout").onclick = () => signOut(auth);
+</script>
+
+</body>
+</html>

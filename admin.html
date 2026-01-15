@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Admin – Rollen verwalten</title>
+
+<style>
+  body {
+    margin:0; padding:0;
+    background:linear-gradient(120deg,#000,#111);
+    font-family:"Poppins",sans-serif;
+    color:white;
+  }
+
+  header {
+    background:linear-gradient(90deg,#20d1e1,#b638ff);
+    padding:18px;
+    text-align:center;
+    font-size:2rem;
+    font-weight:700;
+    box-shadow:0 0 25px #20d1e1;
+  }
+
+  .container {
+    max-width:900px;
+    margin:30px auto;
+    padding:10px;
+  }
+
+  .userCard {
+    background:#222;
+    padding:18px;
+    border-radius:12px;
+    margin:12px 0;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    transition:0.25s;
+  }
+  .userCard:hover {
+    background:#333;
+    transform:translateY(-3px);
+  }
+
+  button {
+    padding:10px 20px;
+    border:none;
+    border-radius:8px;
+    background:linear-gradient(90deg,#20d1e1,#b638ff);
+    font-weight:bold;
+    color:white;
+    cursor:pointer;
+    transition:0.25s;
+  }
+  button:hover {
+    background:linear-gradient(90deg,#ffd700,#ffa500);
+    color:#111;
+    transform:scale(1.05);
+  }
+
+  .roleTag {
+    padding:4px 10px;
+    border-radius:6px;
+    background:#444;
+    font-size:0.9rem;
+    margin-left:10px;
+  }
+  .teacher { background:#006400; }
+  .student { background:#8b0000; }
+
+</style>
+</head>
+<body>
+
+<header>⚙️ Rollenverwaltung</header>
+
+<div class="container">
+  <h2>👤 Nutzer & Rollen</h2>
+  <div id="userList">Lade Nutzer...</div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+import { getFirestore, doc, collection, getDocs, updateDoc, setDoc, addDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
+  authDomain: "klassen-website-5283c.firebaseapp.com",
+  projectId: "klassen-website-5283c"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+// Admin UID(s) – du kannst hier beliebig erweitern
+const adminUIDs = ["89cKJ6I7i2OBJ0N6OQ4Ri8CRpYs1"];
+
+function logAction(action) {
+  addDoc(collection(db,"logs"),{
+    action,
+    time: new Date(),
+    admin: auth.currentUser.uid
+  });
+}
+
+// AUTH
+onAuthStateChanged(auth, async user => {
+  if (!user || !adminUIDs.includes(user.uid)) {
+    alert("Kein Zugriff!");
+    window.location.href = "login.html";
+    return;
+  }
+
+  loadUsers();
+});
+
+// Nutzer laden
+async function loadUsers() {
+  const userList = document.getElementById("userList");
+  userList.innerHTML = "";
+
+  const snap = await getDocs(collection(db, "users"));
+
+  snap.forEach(docSnap => {
+    const d = docSnap.data();
+    const uid = docSnap.id;
+
+    const div = document.createElement("div");
+    div.className = "userCard";
+
+    div.innerHTML = `
+      <div>
+        <b>${d.name || "Unbekannt"}</b> (${d.email || "Keine Email"})
+        <span class="roleTag ${d.role}">${d.role}</span>
+      </div>
+
+      <div>
+        <button onclick="makeTeacher('${uid}')">Zu Lehrer machen</button>
+        <button onclick="makeStudent('${uid}')">Zu Schüler machen</button>
+      </div>
+    `;
+
+    userList.appendChild(div);
+  });
+}
+
+// Rolle ändern
+window.makeTeacher = async uid => {
+  await updateDoc(doc(db, "users", uid), { role: "teacher" });
+  logAction(`Rolle geändert: ${uid} → teacher`);
+  loadUsers();
+};
+
+window.makeStudent = async uid => {
+  await updateDoc(doc(db, "users", uid), { role: "student" });
+  logAction(`Rolle geändert: ${uid} → student`);
+  loadUsers();
+};
+</script>
+
+</body>
+</html>

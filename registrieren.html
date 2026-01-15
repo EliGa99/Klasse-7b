@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Registrieren</title>
+  <style>
+    body {
+      font-family: Arial;
+      background: linear-gradient(250deg, #20d1e1, #b638ff);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .box {
+      background: #1e1e1e;
+      padding: 30px;
+      border-radius: 10px;
+      width: 300px;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    button {
+      background: #4CAF50;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+    #msg { margin-top: 10px; color: #f55; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+
+<div class="box">
+  <h2>Registrieren</h2>
+  <input id="name" type="text" placeholder="Name">
+  <input id="email" type="email" placeholder="E-Mail">
+  <input id="password" type="password" placeholder="Passwort">
+  <button id="registerBtn">Registrieren</button>
+  <p id="msg"></p>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-analytics.js";
+  import {
+    getAuth,
+    createUserWithEmailAndPassword,
+    setPersistence,
+    browserLocalPersistence,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+
+  import {
+    getFirestore,
+    doc,
+    setDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
+    authDomain: "klassen-website-5283c.firebaseapp.com",
+    projectId: "klassen-website-5283c",
+    storageBucket: "klassen-website-5283c.firebasestorage.app",
+    messagingSenderId: "220460693651",
+    appId: "1:220460693651:web:4f3725ddd9971e9d5e3566",
+    measurementId: "G-CVKZB26WMH"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  getAnalytics(app);
+
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  setPersistence(auth, browserLocalPersistence);
+
+  // Automatische Weiterleitung, wenn schon angemeldet
+  onAuthStateChanged(auth, user => {
+    if (user) window.location.href = "index.html";
+  });
+
+  registerBtn.onclick = async () => {
+    const emailInput = document.getElementById("email");
+const passwordInput = document.getElementById("password");
+const nameInput = document.getElementById("name");
+
+const emailVal = emailInput.value.trim();
+const passVal = passwordInput.value.trim();
+const nameVal = nameInput.value.trim();
+
+
+    if (!emailVal || !passVal || !nameVal) {
+      msg.innerText = "Alle Felder ausfüllen!";
+      return;
+    }
+
+    try {
+      // User in Auth erstellen
+      const userCred = await createUserWithEmailAndPassword(auth, emailVal, passVal);
+      const user = userCred.user;
+
+      // User in Firestore speichern
+      await setDoc(doc(db, "users", user.uid), {
+        email: user.email,
+        name: nameVal,
+        role: "student",
+        createdAt: serverTimestamp()
+      });
+
+      // Weiterleitung nach erfolgreicher Registrierung
+      window.location.href = "index.html";
+    } catch (e) {
+      msg.innerText = e.message;
+    }
+  };
+</script>
+
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Lernkarten – Lernen</title>
+<style>
+  body { font-family: Arial; background:#f5f5f5; margin:0; padding:0; }
+  header { background: linear-gradient(250deg, #20d1e1, #b638ff); color:white; padding:20px; text-align:center; }
+  main { max-width:600px; margin:30px auto; background:white; padding:20px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+  select, button { width:100%; padding:10px; margin-top:10px; border-radius:5px; border:1px solid #ccc; }
+  #cardBox { margin-top:20px; padding:20px; background:#fafafa; border-radius:10px; border:1px solid #ddd; display:none; }
+  #answer { margin-top:15px; padding:10px; background:#e8f5e9; border-radius:5px; display:none; }
+  .rateBtn { width:32%; display:inline-block; padding:10px; margin-top:10px; border:none; border-radius:5px; cursor:pointer; }
+  .easy { background:#4caf50; color:white; }
+  .medium { background:#ff9800; color:white; }
+  .hard { background:#f44336; color:white; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Lernkarten – Schülerbereich</h1>
+  <div id="userName"></div>
+</header>
+
+<main>
+
+  <h2>Karten‑Pack auswählen</h2>
+  <select id="packSelect">
+    <option value="">Bitte Pack auswählen…</option>
+  </select>
+
+  <button id="startBtn">Lernen starten</button>
+
+  <div id="cardBox">
+    <h3 id="question"></h3>
+    <button id="showAnswerBtn">Antwort anzeigen</button>
+    <div id="answer"></div>
+
+    <div id="ratingButtons" style="display:none;">
+      <button class="rateBtn easy" data-rate="easy">Leicht</button>
+      <button class="rateBtn medium" data-rate="medium">Mittel</button>
+      <button class="rateBtn hard" data-rate="hard">Schwer</button>
+    </div>
+  </div>
+
+  <p id="msg"></p>
+
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+import { 
+  getFirestore, collection, getDocs, query, where, orderBy,
+  doc, getDoc, setDoc, serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
+  authDomain: "klassen-website-5283c.firebaseapp.com",
+  projectId: "klassen-website-5283c"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const userNameDiv = document.getElementById("userName");
+const packSelect = document.getElementById("packSelect");
+const startBtn = document.getElementById("startBtn");
+
+const cardBox = document.getElementById("cardBox");
+const questionEl = document.getElementById("question");
+const answerEl = document.getElementById("answer");
+const showAnswerBtn = document.getElementById("showAnswerBtn");
+const ratingButtons = document.getElementById("ratingButtons");
+const msg = document.getElementById("msg");
+
+let currentUser = null;
+let cards = [];
+let currentCard = null;
+
+// LOGIN
+onAuthStateChanged(auth, async user => {
+  if (!user) return window.location.href = "login.html";
+  currentUser = user;
+
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+  userNameDiv.innerText = `Hallo, ${userDoc.data().name}!`;
+
+  loadPacks();
+});
+
+// PACKS LADEN
+async function loadPacks() {
+  const q = query(collection(db, "packs"), orderBy("createdAt", "desc"));
+  const snap = await getDocs(q);
+
+  snap.forEach(docSnap => {
+    const p = docSnap.data();
+    packSelect.innerHTML += `<option value="${docSnap.id}">${p.title}</option>`;
+  });
+}
+
+// LERNEN STARTEN
+startBtn.onclick = async () => {
+  const packId = packSelect.value;
+  if (!packId) return alert("Bitte ein Pack auswählen.");
+
+  msg.innerText = "";
+  answerEl.style.display = "none";
+  ratingButtons.style.display = "none";
+
+  // Karten laden
+  const q = query(
+    collection(db, "cards"),
+    where("packId", "==", packId),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+
+  cards = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  if (cards.length === 0) {
+    msg.innerText = "Dieses Pack hat noch keine Karten.";
+    return;
+  }
+
+  showRandomCard();
+};
+
+// ZUFÄLLIGE KARTE
+function showRandomCard() {
+  currentCard = cards[Math.floor(Math.random() * cards.length)];
+
+  questionEl.innerText = currentCard.question;
+  answerEl.innerText = currentCard.answer;
+
+  answerEl.style.display = "none";
+  ratingButtons.style.display = "none";
+  showAnswerBtn.style.display = "block";
+
+  cardBox.style.display = "block";
+}
+
+// ANTWORT ANZEIGEN
+showAnswerBtn.onclick = () => {
+  answerEl.style.display = "block";
+  ratingButtons.style.display = "block";
+  showAnswerBtn.style.display = "none";
+};
+
+// BEWERTUNG SPEICHERN
+document.querySelectorAll(".rateBtn").forEach(btn => {
+  btn.onclick = async () => {
+    const rate = btn.dataset.rate;
+
+    await setDoc(doc(db, "progress", `${currentUser.uid}_${currentCard.id}`), {
+      userId: currentUser.uid,
+      cardId: currentCard.id,
+      rating: rate,
+      lastReviewed: serverTimestamp()
+    });
+
+    msg.innerText = "Bewertung gespeichert!";
+    showRandomCard();
+  };
+});
+</script>
+
+</body>
+</html>

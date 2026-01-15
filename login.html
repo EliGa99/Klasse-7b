@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Klassen-Website Login</title>
+  <style>
+    body {
+      font-family: Arial;
+      background: linear-gradient(250deg, #20d1e1, #b638ff);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .box {
+      background: #1e1e1e;
+      padding: 30px;
+      border-radius: 10px;
+      width: 300px;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    button {
+      background: #4CAF50;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+    a {
+        color: white;
+    }
+  </style>
+</head>
+<body>
+
+<div class="box">
+  <h2>Login</h2>
+  <input id="email" type="email" placeholder="E-Mail">
+  <input id="password" type="password" placeholder="Passwort">
+  <button id="loginBtn">Einloggen</button>
+  <p id="msg"></p>
+  <a href="registrieren.html">Sie haben noch kein Benutzer Konto?</a>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-analytics.js";
+  import {
+    getAuth,
+    signInWithEmailAndPassword,
+    onAuthStateChanged,
+    setPersistence,
+    browserLocalPersistence
+  } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
+    authDomain: "klassen-website-5283c.firebaseapp.com",
+    projectId: "klassen-website-5283c",
+    storageBucket: "klassen-website-5283c.firebasestorage.app",
+    messagingSenderId: "220460693651",
+    appId: "1:220460693651:web:4f3725ddd9971e9d5e3566",
+    measurementId: "G-CVKZB26WMH"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  getAnalytics(app);
+
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  setPersistence(auth, browserLocalPersistence);
+
+  async function createUserIfNotExists(user) {
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        email: user.email,
+        role: "student",
+        createdAt: serverTimestamp()
+      });
+    }
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      await createUserIfNotExists(user);
+      window.location.href = "index.html";
+    }
+  });
+
+  loginBtn.onclick = async () => {
+    try {
+      const result = await signInWithEmailAndPassword(
+        auth,
+        email.value,
+        password.value
+      );
+      await createUserIfNotExists(result.user);
+      window.location.href = "index.html";
+    } catch (e) {
+      msg.innerText = "Login fehlgeschlagen";
+    }
+  };
+</script>
+
+
+</body>
+</html>
