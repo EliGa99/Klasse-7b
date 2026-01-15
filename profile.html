@@ -5,11 +5,24 @@
 <title>Profil</title>
 <style>
   body { font-family: Arial; background:#f5f5f5; margin:0; padding:0; }
-  header { background: linear-gradient(250deg, #20d1e1, #b638ff); color:white; padding:20px; text-align:center; }
+  header { background: linear-gradient(250deg,#20d1e1,#b638ff); color:white; padding:20px; text-align:center; }
   main { max-width:700px; margin:30px auto; background:white; padding:20px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
-  .progressBox { margin-top:20px; padding:15px; background:#fafafa; border-radius:8px; border:1px solid #ddd; }
+
+  .infoBox, .progressBox, .recentBox {
+    margin-top:20px;
+    padding:15px;
+    background:#fafafa;
+    border-radius:8px;
+    border:1px solid #ddd;
+  }
+
   .barOuter { width:100%; background:#ddd; height:15px; border-radius:10px; margin-top:5px; }
   .barInner { height:15px; background:#4caf50; border-radius:10px; width:0%; transition:0.4s; }
+
+  .recentItem { margin-bottom:8px; }
+  .easy { color:#4caf50; }
+  .medium { color:#ff9800; }
+  .hard { color:#f44336; }
 </style>
 </head>
 <body>
@@ -20,17 +33,32 @@
 </header>
 
 <main>
-  <h2>Deine Lernfortschritte</h2>
-  <div id="progressContainer">
-    <p>Lade Fortschritt…</p>
+
+  <div class="infoBox">
+    <h2>Account‑Informationen</h2>
+    <p><b>Name:</b> <span id="infoName"></span></p>
+    <p><b>E‑Mail:</b> <span id="infoEmail"></span></p>
+    <p><b>Rolle:</b> <span id="infoRole"></span></p>
+    <p><b>Registriert am:</b> <span id="infoCreated"></span></p>
   </div>
+
+  <div class="infoBox">
+    <h2>Gesamtfortschritt</h2>
+    <p id="totalText"></p>
+    <div class="barOuter"><div id="totalBar" class="barInner"></div></div>
+  </div>
+
+  <h2>Fortschritt pro Pack</h2>
+  <div id="progressContainer"><p>Lade…</p></div>
+
+
 </main>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
 import { 
-  getFirestore, collection, getDocs, query, where, doc, getDoc 
+  getFirestore, collection, getDocs, query, where, doc, getDoc, orderBy, limit 
 } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -43,32 +71,37 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const userNameDiv = document.getElementById("userName");
-const progressContainer = document.getElementById("progressContainer");
-
 let currentUser = null;
 
-// LOGIN
 onAuthStateChanged(auth, async user => {
   if (!user) return window.location.href = "login.html";
   currentUser = user;
 
   const userDoc = await getDoc(doc(db, "users", user.uid));
-  userNameDiv.innerText = `Hallo, ${userDoc.data().name}!`;
+  const data = userDoc.data();
+
+  document.getElementById("userName").innerText = `Hallo, ${data.name}!`;
+  document.getElementById("infoName").innerText = data.name;
+  document.getElementById("infoEmail").innerText = data.email;
+  document.getElementById("infoRole").innerText = data.role;
+  document.getElementById("infoCreated").innerText = data.createdAt?.toDate().toLocaleDateString() || "-";
 
   loadProgress();
+  loadRecent();
 });
 
-// FORTSCHRITT LADEN
+// FORTSCHRITT PRO PACK + GESAMT
 async function loadProgress() {
+  const progressContainer = document.getElementById("progressContainer");
   progressContainer.innerHTML = "Lade…";
 
-  // Packs laden
   const packsSnap = await getDocs(collection(db, "packs"));
-  if (packsSnap.empty) {
-    progressContainer.innerHTML = "<p>Noch keine Packs vorhanden.</p>";
-    return;
-  }
+  const progressSnap = await getDocs(
+    query(collection(db, "progress"), where("userId", "==", currentUser.uid))
+  );
+
+  let totalLearned = 0;
+  let totalCardsAll = 0;
 
   let html = "";
 
@@ -76,22 +109,18 @@ async function loadProgress() {
     const pack = packDoc.data();
     const packId = packDoc.id;
 
-    // Karten dieses Packs laden
     const cardsSnap = await getDocs(
       query(collection(db, "cards"), where("packId", "==", packId))
     );
 
     const totalCards = cardsSnap.size;
+    totalCardsAll += totalCards;
 
-    // Fortschritt laden
-    const progressSnap = await getDocs(
-      query(collection(db, "progress"), where("userId", "==", currentUser.uid))
-    );
+    const learnedCards = progressSnap.docs.filter(p =>
+      cardsSnap.docs.some(c => c.id === p.data().cardId)
+    ).length;
 
-    // Karten, die gelernt wurden
-    const learnedCards = progressSnap.docs.filter(p => {
-      return p.data().cardId && cardsSnap.docs.some(c => c.id === p.data().cardId);
-    }).length;
+    totalLearned += learnedCards;
 
     const percent = totalCards > 0 ? Math.round((learnedCards / totalCards) * 100) : 0;
 
@@ -107,6 +136,50 @@ async function loadProgress() {
   }
 
   progressContainer.innerHTML = html;
+
+  // Gesamtfortschritt
+  const totalPercent = totalCardsAll > 0 ? Math.round((totalLearned / totalCardsAll) * 100) : 0;
+  document.getElementById("totalText").innerText =
+    `${totalLearned} von ${totalCardsAll} Karten gelernt (${totalPercent}%)`;
+  document.getElementById("totalBar").style.width = totalPercent + "%";
+}
+
+// LETZTE 5 GELERNTE KARTEN
+async function loadRecent() {
+  const recentContainer = document.getElementById("recentContainer");
+
+  const recentSnap = await getDocs(
+    query(
+      collection(db, "progress"),
+      where("userId", "==", currentUser.uid),
+      orderBy("lastReviewed", "desc"),
+      limit(5)
+    )
+  );
+
+  if (recentSnap.empty) {
+    recentContainer.innerHTML = "<p>Noch nichts gelernt.</p>";
+    return;
+  }
+
+  let html = "";
+
+  for (const docSnap of recentSnap.docs) {
+    const p = docSnap.data();
+
+    const cardDoc = await getDoc(doc(db, "cards", p.cardId));
+    const card = cardDoc.exists() ? cardDoc.data() : { question: "Unbekannte Karte" };
+
+    html += `
+      <div class="recentItem">
+        <b>${card.question}</b>  
+        <span class="${p.rating}">(${p.rating})</span><br>
+        <small>${p.lastReviewed?.toDate().toLocaleString()}</small>
+      </div>
+    `;
+  }
+
+  recentContainer.innerHTML = html;
 }
 </script>
 
