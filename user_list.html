@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Lehrer – Nutzerübersicht</title>
+
+<style>
+  body { font-family: Arial; background:#f5f5f5; margin:0; padding:0; }
+  header { background: linear-gradient(250deg,#20d1e1,#b638ff); color:white; padding:20px; text-align:center; }
+  main { max-width:900px; margin:30px auto; background:white; padding:20px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+
+  .userBox {
+    background:#fafafa;
+    border:1px solid #ddd;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:20px;
+  }
+
+  .packBox {
+    background:#eee;
+    padding:10px;
+    border-radius:8px;
+    margin-top:10px;
+  }
+
+  .ratingList {
+    margin-top:10px;
+    padding-left:20px;
+  }
+
+  .ratingItem {
+    margin-bottom:5px;
+  }
+
+  .easy { color:#4caf50; font-weight:bold; }
+  .medium { color:#ff9800; font-weight:bold; }
+  .hard { color:#f44336; font-weight:bold; }
+
+  .barOuter { width:100%; background:#ddd; height:12px; border-radius:10px; margin-top:5px; }
+  .barInner { height:12px; background:#4caf50; border-radius:10px; width:0%; transition:0.4s; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Lehrer – Nutzerübersicht</h1>
+</header>
+
+<main>
+  <h2>Alle Schüler & ihr Lernfortschritt</h2>
+  <div id="userContainer">Lade Nutzer…</div>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+import { 
+  getFirestore, collection, getDocs, query, where, doc, getDoc 
+} from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
+  authDomain: "klassen-website-5283c.firebaseapp.com",
+  projectId: "klassen-website-5283c"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const userContainer = document.getElementById("userContainer");
+
+// LOGIN
+onAuthStateChanged(auth, async user => {
+  if (!user) return window.location.href = "login.html";
+
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+  if (!userDoc.exists() || userDoc.data().role !== "teacher") {
+    alert("Kein Zugriff!");
+    return window.location.href = "tasks.html";
+  }
+
+  loadUsers();
+});
+
+// ALLE SCHÜLER LADEN
+async function loadUsers() {
+  userContainer.innerHTML = "";
+
+  const userSnap = await getDocs(collection(db, "users"));
+
+  for (const userDoc of userSnap.docs) {
+    const user = userDoc.data();
+    const userId = userDoc.id;
+
+    if (user.role !== "student") continue;
+
+    const box = document.createElement("div");
+    box.className = "userBox";
+    box.innerHTML = `
+      <h3>${user.name} <small>(${user.email})</small></h3>
+      <div id="packs_${userId}">Lade Packs…</div>
+    `;
+
+    userContainer.appendChild(box);
+
+    loadUserPacks(userId);
+  }
+}
+
+// PACKS + FORTSCHRITT LADEN
+async function loadUserPacks(userId) {
+  const container = document.getElementById("packs_" + userId);
+  container.innerHTML = "Lade Packs…";
+
+  const packsSnap = await getDocs(collection(db, "packs"));
+
+  let html = "";
+
+  for (const packDoc of packsSnap.docs) {
+    const pack = packDoc.data();
+    const packId = packDoc.id;
+
+    const cardsSnap = await getDocs(
+      query(collection(db, "cards"), where("packId", "==", packId))
+    );
+
+    const totalCards = cardsSnap.size;
+
+    const progressSnap = await getDocs(
+      query(collection(db, "progress"), where("userId", "==", userId))
+    );
+
+    const ratings = progressSnap.docs.filter(p =>
+      cardsSnap.docs.some(c => c.id === p.data().cardId)
+    );
+
+    const learnedCards = ratings.length;
+    const percent = totalCards > 0 ? Math.round((learnedCards / totalCards) * 100) : 0;
+
+    let ratingList = "";
+
+    for (const r of ratings) {
+      const d = r.data();
+      const cardDoc = await getDoc(doc(db, "cards", d.cardId));
+      const card = cardDoc.exists() ? cardDoc.data() : { question: "Unbekannte Karte" };
+
+      ratingList += `
+        <div class="ratingItem ${d.rating}">
+          <b>${card.question}</b> → <span class="${d.rating}">${d.rating}</span>
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="packBox">
+        <h4>${pack.title}</h4>
+        <p>${learnedCards} von ${totalCards} Karten gelernt (${percent}%)</p>
+        <div class="barOuter"><div class="barInner" style="width:${percent}%"></div></div>
+
+        <div class="ratingList">
+          ${ratingList || "<i>Noch keine Bewertungen</i>"}
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+}
+</script>
+
+</body>
+</html>
