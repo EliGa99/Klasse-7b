@@ -123,6 +123,10 @@
     <h3>Lernkarten</h3>
     <p>Schüler können mit von Lehrern geschriebenen Lernpacks üben</p>
   </a>
+  <a href="maths.html" class="card" id="blogCard">
+    <h3>Mathe-Übungen</h3>
+    <p>Absolviere vom Lehrer ausgewählte Mathe-Aufgaben.</p>
+  </a>
   <a href="timetable.html" class="card" id="blogCard">
     <h3>Stundenplan</h3>
     <p>Gucke dir den Stundenplan + Vertretungsplan dieser Woche an</p>
@@ -141,6 +145,10 @@
   <a href="user_list.html" class="teacher-card" id="UserCard" style="display:none">
     <h3>Schüler Liste</h3>
     <p>Haben Sie den Lernfortschritt Ihrer Schüler im Blick</p>
+  </a>
+  <a href="maths-settings.html" class="teacher-card" id="MathsCard" style="display:none">
+    <h3>Mathe-Übungen erstellen</h3>
+    <p>Wählen Sie Mathe-Aufgaben für Ihre Schüler</p>
   </a>
 </main>
 
@@ -167,6 +175,7 @@ const userNameDiv = document.getElementById("userName");
 const createTaskCard = document.getElementById("createTaskCard");
 const createCard = document.getElementById("createCard");
 const userCard = document.getElementById("UserCard")
+const mathsCard = document.getElementById("MathsCard")
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
@@ -189,6 +198,7 @@ onAuthStateChanged(auth, async user => {
     createTaskCard.style.display = "block";
     createCard.style.display = "block";
     userCard.style.display = "block";
+    mathsCard.style.display = "block";
   }
 });
 

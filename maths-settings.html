@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#20d1e1">
+<title>Mathe Einstellungen</title>
+
+<style>
+  body {
+    font-family: Arial;
+    margin: 0;
+    background: #f5f5f5;
+  }
+
+  /* HEADER mit Farbverlauf wie beim Index */
+  header {
+    background: linear-gradient(90deg, #20d1e1, #8a2be2);
+    padding: 20px;
+    color: white;
+    text-align: center;
+    font-size: 26px;
+    font-weight: bold;
+  }
+
+  .box {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 400px;
+    margin: 30px auto;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  }
+
+  button {
+    margin-top: 15px;
+    padding: 10px;
+    width: 100%;
+    background: #20d1e1;
+    border: none;
+    color: white;
+    font-size: 18px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #18b5c3;
+  }
+</style>
+</head>
+<body>
+
+<header>Mathe-Einstellungen</header>
+
+<div class="box">
+  <p>Wähle aus, welche Aufgaben die Schüler üben sollen.</p>
+
+  <label><input type="checkbox" id="add"> Addition</label><br>
+  <label><input type="checkbox" id="sub"> Subtraktion</label><br>
+  <label><input type="checkbox" id="mul"> Multiplikation</label><br>
+  <label><input type="checkbox" id="div"> Division</label><br>
+  <label><input type="checkbox" id="frac"> Brüche</label><br>
+  <label><input type="checkbox" id="eq"> Gleichungen</label><br>
+  <label><input type="checkbox" id="percent"> Prozentrechnung</label><br>
+
+  <button onclick="save()">Speichern</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
+  authDomain: "klassen-website-5283c.firebaseapp.com",
+  projectId: "klassen-website-5283c"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Einstellungen laden
+async function load() {
+  const snap = await getDoc(doc(db, "maths", "settings"));
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+
+  document.getElementById("add").checked = data.addition || false;
+  document.getElementById("sub").checked = data.subtraction || false;
+  document.getElementById("mul").checked = data.multiplication || false;
+  document.getElementById("div").checked = data.division || false;
+  document.getElementById("frac").checked = data.fractions || false;
+  document.getElementById("eq").checked = data.equations || false;
+  document.getElementById("percent").checked = data.percent || false;
+}
+
+load();
+
+// Speichern
+async function save() {
+  const data = {
+    addition: document.getElementById("add").checked,
+    subtraction: document.getElementById("sub").checked,
+    multiplication: document.getElementById("mul").checked,
+    division: document.getElementById("div").checked,
+    fractions: document.getElementById("frac").checked,
+    equations: document.getElementById("eq").checked,
+    percent: document.getElementById("percent").checked
+  };
+
+  await setDoc(doc(db, "maths", "settings"), data);
+  alert("Einstellungen gespeichert!");
+}
+
+// WICHTIG: Funktion global machen, damit der Button sie findet
+window.save = save;
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js");
+}
+</script>
+
+</body>
+</html>

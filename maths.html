@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Mathe üben</title>
+
+<!-- Manifest einbinden -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#20d1e1">
+
+<style>
+  body {
+    font-family: Arial;
+    margin: 0;
+    background: #f5f5f5;
+  }
+
+  /* HEADER mit Farbverlauf */
+  header {
+    background: linear-gradient(90deg, #20d1e1, #8a2be2);
+    padding: 20px;
+    color: white;
+    text-align: center;
+    font-size: 26px;
+    font-weight: bold;
+  }
+
+  .box {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 400px;
+    margin: 30px auto;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  }
+
+  input {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    font-size: 18px;
+  }
+
+  button {
+    margin-top: 15px;
+    padding: 10px;
+    width: 100%;
+    background: #20d1e1;
+    border: none;
+    color: white;
+    font-size: 18px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #18b5c3;
+  }
+
+  #result {
+    margin-top: 15px;
+    font-size: 18px;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+
+<header>Mathe üben</header>
+
+<div class="box">
+  <p id="task">Lade Einstellungen…</p>
+
+  <input id="answer" type="number" placeholder="Deine Lösung">
+  <button onclick="check()">Überprüfen</button>
+  <button onclick="newTask()">Neue Aufgabe</button>
+
+  <p id="result"></p>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+import { getFirestore, doc, getDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
+  authDomain: "klassen-website-5283c.firebaseapp.com",
+  projectId: "klassen-website-5283c"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let allowed = {};  
+let correctAnswer = 0;
+let currentTaskType = "";
+
+// Einstellungen laden
+async function loadSettings() {
+  const snap = await getDoc(doc(db, "maths", "settings"));
+
+  if (!snap.exists()) {
+    document.getElementById("task").innerText = "Keine Einstellungen gefunden.";
+    return;
+  }
+
+  allowed = snap.data();
+  newTask();
+}
+
+// Aufgabe erzeugen
+function newTask() {
+  const types = [];
+
+  if (allowed.addition) types.push("add");
+  if (allowed.subtraction) types.push("sub");
+  if (allowed.multiplication) types.push("mul");
+  if (allowed.division) types.push("div");
+  if (allowed.fractions) types.push("frac");
+  if (allowed.equations) types.push("eq");
+  if (allowed.percent) types.push("percent");
+
+  if (types.length === 0) {
+    document.getElementById("task").innerText = "Der Lehrer hat keine Aufgaben ausgewählt.";
+    return;
+  }
+
+  const type = types[Math.floor(Math.random() * types.length)];
+  currentTaskType = type;
+
+  let a = Math.floor(Math.random() * 20) + 1;
+  let b = Math.floor(Math.random() * 20) + 1;
+
+  let text = "";
+
+  switch (type) {
+    case "add":
+      correctAnswer = a + b;
+      text = `${a} + ${b}`;
+      break;
+
+    case "sub":
+      correctAnswer = a - b;
+      text = `${a} - ${b}`;
+      break;
+
+    case "mul":
+      correctAnswer = a * b;
+      text = `${a} × ${b}`;
+      break;
+
+    case "div":
+      correctAnswer = a;
+      text = `${a * b} ÷ ${b}`;
+      break;
+
+    case "frac":
+      correctAnswer = a / b;
+      text = `${a} / ${b} (als Dezimalzahl)`;
+      break;
+
+    case "eq":
+      correctAnswer = a;
+      text = `${a} + x = ${a + b} → Was ist x?`;
+      break;
+
+    case "percent":
+      correctAnswer = (a / 100) * b;
+      text = `${b}% von ${a}`;
+      break;
+  }
+
+  document.getElementById("task").innerText = "Rechne: " + text;
+  document.getElementById("result").innerText = "";
+  document.getElementById("answer").value = "";
+}
+
+// Ergebnis protokollieren
+async function logResult(isCorrect) {
+  const user = JSON.parse(localStorage.getItem("user")) || { uid: "unknown" };
+
+  await addDoc(collection(db, "mathLogs"), {
+    userId: user.uid,
+    taskType: currentTaskType,
+    correct: isCorrect,
+    timestamp: serverTimestamp()
+  });
+}
+
+// Antwort prüfen
+function check() {
+  const user = Number(document.getElementById("answer").value);
+  const isCorrect = Math.abs(user - correctAnswer) < 0.0001;
+
+  // Protokoll speichern
+  logResult(isCorrect);
+
+  if (isCorrect) {
+    document.getElementById("result").innerText = "Richtig! Super gemacht!";
+    document.getElementById("result").style.color = "green";
+  } else {
+    document.getElementById("result").innerText = "Leider falsch. Versuch es nochmal!";
+    document.getElementById("result").style.color = "red";
+  }
+}
+
+loadSettings();
+
+// Funktionen global machen
+window.check = check;
+window.newTask = newTask;
+
+// SERVICE WORKER REGISTRIERUNG
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js");
+}
+</script>
+
+</body>
+</html>

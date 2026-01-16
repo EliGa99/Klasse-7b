@@ -102,7 +102,7 @@ async function loadUsers() {
     box.className = "userBox";
     box.innerHTML = `
       <h3>${user.name} <small>(${user.email})</small></h3>
-      <div id="packs_${userId}">Lade Packs…</div>
+      <div id="packs_${userId}">Lade Daten…</div>
     `;
 
     userContainer.appendChild(box);
@@ -111,14 +111,59 @@ async function loadUsers() {
   }
 }
 
-// PACKS + FORTSCHRITT LADEN
+// PACKS + MATHE-FORTSCHRITT LADEN
 async function loadUserPacks(userId) {
   const container = document.getElementById("packs_" + userId);
-  container.innerHTML = "Lade Packs…";
-
-  const packsSnap = await getDocs(collection(db, "packs"));
+  container.innerHTML = "Lade Daten…";
 
   let html = "";
+
+  /* -------------------------
+     1) MATHE-LOGS LADEN
+  -------------------------- */
+  const mathSnap = await getDocs(
+    query(collection(db, "mathLogs"), where("userId", "==", userId))
+  );
+
+  const totalMath = mathSnap.size;
+  const correctMath = mathSnap.docs.filter(d => d.data().correct).length;
+  const wrongMath = totalMath - correctMath;
+  const percentMath = totalMath > 0 ? Math.round((correctMath / totalMath) * 100) : 0;
+
+  // Aufgabentypen zählen
+  const typeCount = {};
+  mathSnap.docs.forEach(docSnap => {
+    const t = docSnap.data().taskType || "unbekannt";
+    if (!typeCount[t]) typeCount[t] = 0;
+    typeCount[t]++;
+  });
+
+  let typeList = "";
+  for (const t in typeCount) {
+    typeList += `<li>${t}: ${typeCount[t]} Aufgaben</li>`;
+  }
+
+  html += `
+    <div class="packBox">
+      <h4>📘 Mathe-Training</h4>
+      <p>${correctMath} richtig, ${wrongMath} falsch</p>
+      <p><b>${percentMath}% richtig</b> (${totalMath} Aufgaben insgesamt)</p>
+
+      <div class="barOuter">
+        <div class="barInner" style="width:${percentMath}%"></div>
+      </div>
+
+      <ul class="ratingList">
+        ${typeList || "<i>Noch keine Mathe-Aufgaben gelöst</i>"}
+      </ul>
+    </div>
+  `;
+
+  /* -------------------------
+     2) VOKABEL-PACKS (dein alter Code)
+  -------------------------- */
+
+  const packsSnap = await getDocs(collection(db, "packs"));
 
   for (const packDoc of packsSnap.docs) {
     const pack = packDoc.data();
@@ -171,6 +216,7 @@ async function loadUserPacks(userId) {
   container.innerHTML = html;
 }
 </script>
+
 <script>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("service-worker.js");
