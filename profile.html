@@ -184,6 +184,11 @@ async function loadRecent() {
   recentContainer.innerHTML = html;
 }
 </script>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js");
+}
+</script>
 
 </body>
 </html>
