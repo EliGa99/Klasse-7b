@@ -80,7 +80,10 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
-import { getFirestore, doc, getDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-auth.js";
+import { 
+  getFirestore, doc, getDoc, collection, addDoc, serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAPY-RoptoqTUHdZwb9oMyF3Etsk3Qju2s",
@@ -89,13 +92,27 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 
+let currentUser = null;
 let allowed = {};  
 let correctAnswer = 0;
 let currentTaskType = "";
 
-// Einstellungen laden
+/* ------------------------------
+   LOGIN CHECK
+------------------------------ */
+onAuthStateChanged(auth, async user => {
+  if (!user) return window.location.href = "login.html";
+
+  currentUser = user;
+  loadSettings();
+});
+
+/* ------------------------------
+   EINSTELLUNGEN LADEN
+------------------------------ */
 async function loadSettings() {
   const snap = await getDoc(doc(db, "maths", "settings"));
 
@@ -108,7 +125,9 @@ async function loadSettings() {
   newTask();
 }
 
-// Aufgabe erzeugen
+/* ------------------------------
+   AUFGABE ERZEUGEN
+------------------------------ */
 function newTask() {
   const types = [];
 
@@ -175,24 +194,27 @@ function newTask() {
   document.getElementById("answer").value = "";
 }
 
-// Ergebnis protokollieren
+/* ------------------------------
+   PROTOKOLLIEREN
+------------------------------ */
 async function logResult(isCorrect) {
-  const user = JSON.parse(localStorage.getItem("user")) || { uid: "unknown" };
+  if (!currentUser) return;
 
   await addDoc(collection(db, "mathLogs"), {
-    userId: user.uid,
+    userId: currentUser.uid,
     taskType: currentTaskType,
     correct: isCorrect,
     timestamp: serverTimestamp()
   });
 }
 
-// Antwort prüfen
+/* ------------------------------
+   ANTWORT PRÜFEN
+------------------------------ */
 function check() {
-  const user = Number(document.getElementById("answer").value);
-  const isCorrect = Math.abs(user - correctAnswer) < 0.0001;
+  const userValue = Number(document.getElementById("answer").value);
+  const isCorrect = Math.abs(userValue - correctAnswer) < 0.0001;
 
-  // Protokoll speichern
   logResult(isCorrect);
 
   if (isCorrect) {
@@ -204,13 +226,15 @@ function check() {
   }
 }
 
-loadSettings();
-
-// Funktionen global machen
+/* ------------------------------
+   FUNKTIONEN GLOBAL MACHEN
+------------------------------ */
 window.check = check;
 window.newTask = newTask;
 
-// SERVICE WORKER REGISTRIERUNG
+/* ------------------------------
+   SERVICE WORKER
+------------------------------ */
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("service-worker.js");
 }
