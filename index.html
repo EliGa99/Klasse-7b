@@ -62,9 +62,6 @@
     box-shadow: 0 8px 20px rgba(0,0,0,0.15);
   }
 
-  .card h3 { margin: 0 0 10px 0; }
-  .card p { margin: 0; font-size: 0.9em; color: #555; }
-
   footer {
     text-align: center;
     padding: 15px;
@@ -84,7 +81,7 @@
 
   button#logout:hover { background: #b71c1c; }
 
-  /* 🔥 NEW PREMIUM CARDS */
+  /* 🔥 PREMIUM EXTERNAL CARDS (angepasst an dein Design) */
   .premium-card {
     color: white;
     font-weight: bold;
@@ -98,6 +95,11 @@
 
   .studybuddy {
     background: linear-gradient(135deg, #ff6a00, #ee0979, #8e2de2);
+  }
+
+  .premium-card p {
+    color: rgba(255,255,255,0.9);
+    font-size: 0.9em;
   }
 
   .new-badge {
@@ -119,8 +121,14 @@
     font-size: 18px;
   }
 
-  .premium-card p {
-    color: rgba(255,255,255,0.9);
+  .external-label {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 10px;
+    background: rgba(255,255,255,0.25);
+    padding: 3px 6px;
+    border-radius: 999px;
   }
 </style>
 </head>
@@ -134,19 +142,24 @@
 
 <main>
 
-  <!-- 🔥 NEW EXTERNAL APPS -->
-  <a href="https://eliga99.github.io/Focus-Flow-/" class="card premium-card focusflow" target="_blank">
+  <!-- 🔥 EXTERNE APPS (JETZT SCHÖN ALS CARDS) -->
+
+  <a href="https://eliga99.github.io/Focus-Flow-/" target="_blank"
+     class="card premium-card focusflow">
     <div class="new-badge">NEW</div>
+    <div class="external-label">extern ↗</div>
     <h3>Focus-Flow+</h3>
     <p>Smarter To-Do Planner & externe App</p>
-    <div class="arrow">→</div>
+    <div class="arrow">↗</div>
   </a>
 
-  <a href="https://eliga99.github.io/StudyBuddy/" class="card premium-card studybuddy" target="_blank">
+  <a href="https://eliga99.github.io/StudyBuddy/" target="_blank"
+     class="card premium-card studybuddy">
     <div class="new-badge">NEW</div>
-    <h3>Studdy-Buddy Pro</h3>
-    <p>Next Level AI Learning Plattform</p>
-    <div class="arrow">→</div>
+    <div class="external-label">extern ↗</div>
+    <h3>StudyBuddy Pro</h3>
+    <p>Next Level AI Lernplattform</p>
+    <div class="arrow">↗</div>
   </a>
 
   <!-- EXISTING CARDS -->
